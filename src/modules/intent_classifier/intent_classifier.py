@@ -40,7 +40,6 @@ Or, or you can use it as a CLI tool, you can do:
         --wandb_project="intent-classifier"
 
 """
-# instalar alguns pacotes auxiliares
 
 import os
 import logging
@@ -183,7 +182,7 @@ def fetch_artifact_from_wandb(model_full_name: str) -> Tuple[str, str]:
             f"Invalid model_full_name format: '{model_full_name}'. "
             f"Expected format: 'entity/project/artifact_name:version' (e.g., 'adaj/intent-classifier-2025-2/confusion-clf:v1')"
         )
-    
+
     # Download artifact from W&B
     try:
         api = wandb.Api()
@@ -194,10 +193,10 @@ def fetch_artifact_from_wandb(model_full_name: str) -> Tuple[str, str]:
     # Create a target directory for the download
     models_dir = Path(os.path.dirname(__file__)) / "models"
     models_dir.mkdir(exist_ok=True)
-    
+
     # Download artifact content. The path returned is the directory where files are.
     download_path = artifact.download(root=models_dir)
-    
+
     model_file, config_file = None, None
     # Iterate over the files *in the artifact manifest* to find the correct ones.
     # This prevents accidentally loading unrelated files from the same directory.
@@ -206,12 +205,12 @@ def fetch_artifact_from_wandb(model_full_name: str) -> Tuple[str, str]:
             model_file = os.path.join(download_path, f.name)
         elif f.name.endswith("_config.yml"):
             config_file = os.path.join(download_path, f.name)
-            
+
     if not model_file:
         raise ValueError(f"Model file (.keras or .h5) not found in W&B artifact '{model_full_name}'.")
     if not config_file:
         raise ValueError(f"Config file (_config.yml) not found in W&B artifact '{model_full_name}'.")
-        
+
     return model_file, config_file
 
 
@@ -245,7 +244,7 @@ class IntentClassifier:
         """
         self.model = None
         local_model_path = None
-        
+
         # Set up W&B project early
         self.wandb_project = wandb_project or os.environ.get("WANDB_PROJECT") or "intent-classifier"
 
@@ -257,24 +256,24 @@ class IntentClassifier:
                 # If not a local path, assume it's a W&B artifact and fetch it.
                 # The associated config path will be discovered and used automatically.
                 local_model_path, config = fetch_artifact_from_wandb(load_model)
-            
+
             self.model = tf.keras.models.load_model(local_model_path)
             print(f"Loaded Keras model from {local_model_path}.")
 
         # Load config. If fetched from W&B, `config` is already the correct path.
         self._load_config(config)
-        
+
         # Load intents from the examples file if provided
         self._load_intents(training_data)
-        
+
         # Validate model output size matches config codes (if model is loaded)
         if self.model:
             self._validate_model_config_compatibility()
-            
+
         # Initialize stop_words and one-hot encoder
         self._load_stop_words(self.config.stop_words_file)
         self._setup_onehot_encoder()
-        
+
         # Set up W&B run
         if self.wandb_project:
             print(f"Setting up W&B project: {self.wandb_project}")
@@ -310,7 +309,7 @@ class IntentClassifier:
             )
         else:
             raise TypeError(f"Unsupported config type: {type(config)}")
-    
+
     def _load_intents(self, training_data: Optional[str]) -> np.ndarray:
         """
         Loads and preprocesses intents from a YAML examples file.
@@ -329,7 +328,8 @@ class IntentClassifier:
         self.training_data = training_data
         if training_data is not None:
             dataset_name = os.path.splitext(os.path.basename(training_data))[0]
-            if hasattr(self, 'config') and self.config is not None:
+            # só usa o nome do arquivo se o config não definir um nome
+            if self.config.dataset_name in (None, "undefined"):
                 self.config.dataset_name = dataset_name
             pprint(f"Loading intents from {training_data}...")
             with open(training_data, 'r') as f:
@@ -354,7 +354,7 @@ class IntentClassifier:
             # Then the model will be used only to predict, no need to load training data
             self.codes = self.config.codes
         return self.codes
-    
+
     def _load_stop_words(self, stop_words_file: Optional[str]) -> 'IntentClassifier':
         """
         Loads stopwords from a file.
@@ -371,7 +371,7 @@ class IntentClassifier:
             self.stop_words = f.read().split('\n')
         print(f"Loaded {len(self.stop_words)} stop words from {stop_words_file}.")
         return self
-    
+
     def _validate_model_config_compatibility(self) -> None:
         """
         Validates that the loaded model's output size matches the number of categories
@@ -397,7 +397,7 @@ class IntentClassifier:
                 f"and the one-hot encoder categories must match.\n\n"
             )
             raise ValueError(error_msg)
-    
+
     def _setup_onehot_encoder(self) -> OneHotEncoder:
         """
         Initializes and fits the OneHotEncoder based on the loaded intent codes.
@@ -429,7 +429,7 @@ class IntentClassifier:
             )
         if self.wandb_project:
             callbacks.append(WandbMetricsLogger())
-        
+
         # Configure ExponentialDecay
         if self.config.learning_rate is not None and not isinstance(self.config.learning_rate, str):
             lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
@@ -438,16 +438,16 @@ class IntentClassifier:
                 decay_rate=0.96,
                 staircase=False
             )
-            
+
             # Modified learning rate scheduler to properly handle epoch parameter
             def lr_scheduler(epoch, lr):
                 """Internal LR scheduler function."""
                 return lr_schedule(epoch).numpy().astype(float)
-            
+
             lr_scheduler_callback = tf.keras.callbacks.LearningRateScheduler(lr_scheduler)
             callbacks.append(lr_scheduler_callback)
         return callbacks
-    
+
     def finish_wandb(self):
         """
         Finishes the current Weights & Biases run, if one is active.
@@ -475,13 +475,13 @@ class IntentClassifier:
             # Create a mask for words that are NOT in stopwords
             words = tf.boolean_mask(words, tf.reduce_all(tf.not_equal(words[:, None], tf.constant(self.stop_words)), axis=1))
             text = tf.strings.reduce_join(words, separator=' ')
-        
+
         if self.config.min_words:
             # Remove punctuation before counting words
             words = tf.strings.split(text)
             words = tf.boolean_mask(words, tf.reduce_all(tf.not_equal(words[:, None], tf.constant(["?", ".", ",", "!"])), axis=1))
             num_words = tf.shape(words)[0]
-            
+
             # Check if num_words is less than or equal to min_words
             if tf.less_equal(num_words, self.config.min_words):
                 # Create padding
@@ -494,7 +494,7 @@ class IntentClassifier:
             text = tf.strings.regex_replace(text, espaped_p, f" {t} ")
         text = tf.strings.regex_replace(text, r"\s+", " ")
         text = tf.strings.strip(text)
-        
+
         # Ensure output is always a 0-D tensor (scalar)
         return tf.strings.as_string(text)
 
@@ -563,7 +563,7 @@ class IntentClassifier:
         # Update task config parameter
         self.config.task = "train"
         assert self.training_data is not None, "training_data must be provided when the IntentClassifier was created."
-        
+
         # Extract one-hot encoded labels
         labels_ohe = self.onehot_encoder\
                             .transform(self.labels.reshape(-1, 1))\
@@ -614,14 +614,21 @@ class IntentClassifier:
         :type path: str
         """
         Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)
+        # Save config into a yaml file inside the model directory
+        base, ext = os.path.splitext(path)
+        if ext != ".keras":
+            raise ValueError(
+                f"save_model deve terminar em .keras (recebido: '{path}'). "
+                f"Com outra extensão o config sobrescreveria o arquivo do modelo."
+            )
+        config_path = base + "_config.yml"
         # Save model in SavedModel format
         if path.endswith('/'):
             # Remove trailing slash if present
             path = path.rstrip('/')
         # Save the model
         self.model.save(path)
-        # Save config into a yaml file inside the model directory
-        config_path = path.replace(".keras", "_config.yml") #os.path.join(os.path.dirname(path), f"{self.config.dataset_name}_config.yml")
+
         with open(config_path, 'w') as f:
             f.write(yaml.dump(self.config.__dict__))
         print(f"Model saved to {path}.")
@@ -660,7 +667,7 @@ class IntentClassifier:
             input_text_list = [input_text]  # Convert single string to a list for processing
         else:
             input_text_list = input_text
-        
+
         # Preprocess each string in the list and stack them
         preprocessed_texts = tf.map_fn(self.preprocess_text, tf.constant(input_text_list), dtype=tf.string)
 
@@ -677,7 +684,7 @@ class IntentClassifier:
             # Create a dictionary of probabilities for each intent name
             probs_dict = {code: float(current_probs[j]) for j, code in enumerate(self.codes)}
             results.append((highest_prob_intent_name, probs_dict))
-        
+
         # Log to Wandb if requested
         if log_to_wandb and self.wandb_project:
             # Get the current run ID if it exists, otherwise start a new run
@@ -689,7 +696,7 @@ class IntentClassifier:
                     "true_labels": true_labels,
                     "predictions": predicted_labels_for_log # Use the extracted list of highest prob intents
                 })
-        
+
         # Return a single tuple if the original input was a string, otherwise a list of tuples
         if original_input_is_string:
             return results[0]
