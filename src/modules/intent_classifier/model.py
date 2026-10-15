@@ -7,8 +7,8 @@ def time_now():
     return datetime.now(timezone.utc)
 
 class Mensagem(BaseModel):
-    id: Optional[str] 
-    nome: Optional[str]
+    id: Optional[str] = None
+    nome: Optional[str] = None
     text: str = Field(min_length=1)
     timestamp: datetime = Field(default_factory=time_now)
 
