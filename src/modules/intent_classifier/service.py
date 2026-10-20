@@ -1,21 +1,22 @@
 from src.modules.intent_classifier.intent_classifier import IntentClassifier
 import os
 
-WANDB_MODELS = os.environ.get('WANDB_MODELS')
-WANDB_PROJECT = os.environ.get('WANDB_PROJECT')
-
 
 _models = {}
 
 def load_models():
-    url_models = [url.strip() for url in WANDB_MODELS.split(',')]
+    # lidas aqui (e nao na importacao) para respeitar o ambiente atual
+    wandb_models = os.environ.get('WANDB_MODELS', '')
+    wandb_project = os.environ.get('WANDB_PROJECT')
+
+    url_models = [url.strip() for url in wandb_models.split(',') if url.strip()]
     if not url_models:
-        raise RunTimeError('Sem modelos em WANDB_MODELS.')
+        raise RuntimeError('Sem modelos: defina WANDB_MODELS com uma ou mais URLs separadas por virgula.')
 
     for url in url_models:
         model_name = url.split('/')[-1].split(':')[0]
         _models[model_name] = IntentClassifier(load_model=url, 
-                                               wandb_project=WANDB_PROJECT)
+                                               wandb_project=wandb_project)
     return
 
 

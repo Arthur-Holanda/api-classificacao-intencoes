@@ -15,4 +15,6 @@ services:
     - WANDB_PROJECT=${WANDB_PROJECT}
     - WANDB_MODELS=${WANDB_MODELS}
     - MONGO_URL=${MONGO_URL}
+    - MONGO_DB=${MONGO_DB:-intent_classifier}
+    - MONGO_PRED_COLLECTION=${MONGO_PRED_COLLECTION:-predictions}
     restart: unless-stopped
