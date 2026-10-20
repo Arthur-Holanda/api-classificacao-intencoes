@@ -70,7 +70,7 @@ jobs:
   # -------------------------------------------------------------
   docker-build:
     name: Build da imagem Docker
-    if: github.event_name == 'pull_request'
+    # if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
