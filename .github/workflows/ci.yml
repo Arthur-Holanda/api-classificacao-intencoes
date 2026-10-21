@@ -70,7 +70,7 @@ jobs:
   # -------------------------------------------------------------
   docker-build:
     name: Build da imagem Docker
-    # if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -94,9 +94,10 @@ jobs:
     timeout-minutes: 40
     # O docker-compose.yml lê estas variáveis do ambiente do runner.
     # Os segredos são cadastrados em Settings > Secrets and variables > Actions.
+    #
     env:
       WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
-      WANDB_PROJECT: ${{ secrets.WANDB_PROJECT }}
+      WANDB_PROJECT: ${{ variable.WANDB_PROJECT }}
       WANDB_MODELS: ${{ secrets.WANDB_MODELS }}
       MONGO_URL: ${{ secrets.MONGO_URL }}
       # Valor literal (não é segredo): banco separado para o CI não
