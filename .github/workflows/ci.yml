@@ -97,7 +97,7 @@ jobs:
     #
     env:
       WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
-      WANDB_PROJECT: ${{ variables.WANDB_PROJECT }}
+      WANDB_PROJECT: ${{ secrets.WANDB_PROJECT }}
       WANDB_MODELS: ${{ secrets.WANDB_MODELS }}
       MONGO_URL: ${{ secrets.MONGO_URL }}
       # Valor literal (não é segredo): banco separado para o CI não
