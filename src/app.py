@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
@@ -25,4 +26,4 @@ app.include_router(intent_clf_router)
 
 @app.get('/')
 def root():
-    return {'status': 'ok'}
+    return {'status': 'ok', 'version': os.getenv('APP_VERSION', 'dev')}
